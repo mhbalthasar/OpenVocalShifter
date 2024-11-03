@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+	<!-- 针对平台的条件编译 -->
+	<PropertyGroup Condition="'$(OS)'=='Unix'">
+		<DefineConstants>LINUX;$(DefineConstants)</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(OS)'=='Windows_NT'">
+		<DefineConstants>WINDOWS;$(DefineConstants)</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(OS)'=='OSX'">
+		<DefineConstants>MAC;$(DefineConstants)</DefineConstants>
+	</PropertyGroup>
+
+	<!-- 针对架构的条件编译 -->
+	<PropertyGroup Condition="'$(PlatformTarget)'=='ARM64'">
+		<DefineConstants>AARCH;$(DefineConstants)</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(PlatformTarget)'=='x64'">
+		<DefineConstants>X64;$(DefineConstants)</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(PlatformTarget)'=='x86'">
+		<DefineConstants>X86;$(DefineConstants)</DefineConstants>
+	</PropertyGroup>
+</Project>
