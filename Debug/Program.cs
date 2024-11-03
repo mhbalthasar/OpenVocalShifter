@@ -62,9 +62,9 @@ class Program
             world.AperiodicityEstimation(samples, samples.Length);
 
             for (int i = 0; i < world.WorldArgs.gender.Length; i++) world.WorldArgs.gender[i] = -100;
-            //world.GenderApplyToSP();
+            world.GenderApplyToSP();
 
-            int y_length = world.WorldArgs.synthesisedLength+1;
+            int y_length = world.WorldArgs.synthesisedLength + 1;
             float[] y = new float[y_length];
             for (var i = 0; i < y.Length; i++)
                 y[i] = 0.0f;
@@ -102,3 +102,4 @@ class Program
 
         Console.WriteLine("处理完成，已生成增强版咆哮效果的音频文件：" + outputFilePath);
     }
+ }

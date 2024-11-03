@@ -23,6 +23,7 @@ namespace OpenVoiceShifter
 
         public double[,] spectrogram;
         public double[,] aperiodicity;
+        public double[][] sp_freq;
         public int fft_size;
 
         public int synthesisedLength => (int)((f0_length - 1) * frame_period / 1000.0 * fs);
@@ -182,6 +183,12 @@ namespace OpenVoiceShifter
 
             world_parameters.fft_size = Core.GetFFTSizeForCheapTrick(world_parameters.fs, option);
             world_parameters.spectrogram = new double[world_parameters.f0_length, world_parameters.fft_size / 2 + 1];
+            world_parameters.sp_freq = new double[world_parameters.fft_size / 2 + 1][];
+
+            for (int n = 0; n <= world_parameters.fft_size / 2; n++)
+            {
+                world_parameters.sp_freq[n] = [n,(double)n * world_parameters.fs / world_parameters.fft_size]; // 计算频率
+            }
 
             double[] x1 = x.Select(p => (double)p).ToArray();
             Core.CheapTrick(x1, x_length, world_parameters.fs, world_parameters.time_axis,
