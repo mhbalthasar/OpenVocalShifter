@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace OpenVoiceShifter
 {
-    public class WordInitialize
+    public class WorldInitialize
     {
         /// <summary>
         /// 这个初始化的作用用于保证DLL被正确加载

@@ -6,9 +6,28 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics;
+using MathNet.Numerics.IntegralTransforms;
 
 namespace OpenVoiceShifter
 {
+    public class WorldFormantBands
+    {
+        public int f1_Freq = 625;
+        public int f1_bandWidth = 750; //300-1000
+
+        public int f2_Freq = 1750;
+        public int f2_bandWidth = 1500; //1000-2500
+
+        public int f3_Freq = 3000;
+        public int f3_bandWidth = 1000; //2500-3500
+
+        public int f4_Freq = 4000;
+        public int f4_bandWidth = 1000; //3500-4500
+        public int[] f1_bands => [f1_Freq - f1_bandWidth / 2, f1_Freq + f1_bandWidth / 2];
+        public int[] f2_bands => [f2_Freq - f2_bandWidth / 2, f2_Freq + f2_bandWidth / 2];
+        public int[] f3_bands => [f3_Freq - f3_bandWidth / 2, f3_Freq + f3_bandWidth / 2];
+        public int[] f4_bands => [f4_Freq - f4_bandWidth / 2, f4_Freq + f4_bandWidth / 2];
+    }
     public class WorldParameters
     {
         public double frame_period = 5;
@@ -23,7 +42,14 @@ namespace OpenVoiceShifter
 
         public double[,] spectrogram;
         public double[,] aperiodicity;
+        
         public double[][] sp_freq;
+        public double[][] sp_formants;
+        public double[] f1shifter;//300-1000
+        public double[] f2shifter;//1000-2500
+        public double[] f3shifter;//2500-3200
+        public double[] f4shifter;//3200-4500
+        
         public int fft_size;
 
         public int synthesisedLength => (int)((f0_length - 1) * frame_period / 1000.0 * fs);
@@ -36,11 +62,14 @@ namespace OpenVoiceShifter
             frame_period= framePeriod
         };
 
+        WorldFormantBands world_formantbands = new WorldFormantBands();
+
         public WorldParameters WorldArgs { get => world_parameters; set => world_parameters = value; }
 
         private double MaxF0 { get; set; } = 800;
         private double MinF0 { get; set; } = 71;
         private double Q1 { get; set; } = -0.15;
+        public WorldFormantBands World_Formantbands { get => world_formantbands; set => world_formantbands = value; }
 
         public void setAnaPrm_MinF0(int Pitch)
         {
@@ -135,9 +164,6 @@ namespace OpenVoiceShifter
         }
         public void GenderApplyToSP()
         {
-            // 创建新的数组以存储插值结果
-           // double[,] spRenderShifted = new double[world_parameters.spectrogram.GetLength(0), world_parameters.spectrogram.GetLength(1)];
-
             // 对每一帧进行插值
             for (int frame = 0; frame < world_parameters.spectrogram.GetLength(0); frame++)
             {
@@ -171,6 +197,107 @@ namespace OpenVoiceShifter
                 }
             }
         }
+        public void FormantsApplyToSP()
+        {
+            double f1_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f1_bands[0]).First()[0];
+            double f1_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f1_bands[1]).First()[0];
+            double f2_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f2_bands[0]).First()[0];
+            double f2_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f2_bands[1]).First()[0];
+            double f3_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f3_bands[0]).First()[0];
+            double f3_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f3_bands[1]).First()[0];
+            double f4_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f4_bands[0]).First()[0];
+            double f4_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f4_bands[1]).First()[0];
+
+            // 对每一帧进行插值
+            for (int frame = 0; frame < world_parameters.spectrogram.GetLength(0); frame++)
+            {
+                // 计算性别调整因子
+                double f1 = Math.Pow(2, world_parameters.f1shifter[frame] / 100);
+                double f2 = Math.Pow(2, world_parameters.f2shifter[frame] / 100);
+                double f3 = Math.Pow(2, world_parameters.f3shifter[frame] / 100);
+                double f4 = Math.Pow(2, world_parameters.f4shifter[frame] / 100);
+
+                // 创建频率数组
+                double[] freq1X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
+                double[] freq2X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
+                double[] freq3X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
+                double[] freq4X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
+
+                // 根据性别调整拉伸频谱包络
+                double[] freq1Clipped = new double[world_parameters.spectrogram.GetLength(1)];
+                double[] freq2Clipped = new double[world_parameters.spectrogram.GetLength(1)];
+                double[] freq3Clipped = new double[world_parameters.spectrogram.GetLength(1)];
+                double[] freq4Clipped = new double[world_parameters.spectrogram.GetLength(1)];
+                for (int i = 0; i < freq1Clipped.Length; i++)
+                {
+                      freq1Clipped[i] = Math.Clamp(i * f1 / world_parameters.spectrogram.GetLength(1), 0, 1); // 限制值的范围
+                      freq2Clipped[i] = Math.Clamp(i * f2 / world_parameters.spectrogram.GetLength(1), 0, 1); // 限制值的范围
+                      freq3Clipped[i] = Math.Clamp(i * f3 / world_parameters.spectrogram.GetLength(1), 0, 1); // 限制值的范围
+                      freq4Clipped[i] = Math.Clamp(i * f4 / world_parameters.spectrogram.GetLength(1), 0, 1); // 限制值的范围
+                }
+
+                // 获取当前帧的频谱包络
+                double[] currentFrame = new double[world_parameters.spectrogram.GetLength(1)];
+                for (int bin = 0; bin < world_parameters.spectrogram.GetLength(1); bin++)
+                {
+                    currentFrame[bin] = world_parameters.spectrogram[frame, bin];
+                }
+
+                // 创建立方样条插值器
+                var f1Interpolator = Interpolate.CubicSpline(freq1X, currentFrame);
+                var f2Interpolator = Interpolate.CubicSpline(freq2X, currentFrame);
+                var f3Interpolator = Interpolate.CubicSpline(freq3X, currentFrame);
+                var f4Interpolator = Interpolate.CubicSpline(freq4X, currentFrame);
+
+                // 对当前帧进行插值
+                for (int bin = 0; bin < world_parameters.spectrogram.GetLength(1); bin++)
+                {
+                    if (bin >= f1_index0 && bin < f1_index1) world_parameters.spectrogram[frame, bin] = f1Interpolator.Interpolate(freq1Clipped[bin]);
+                    if (bin >= f2_index0 && bin < f2_index1) world_parameters.spectrogram[frame, bin] = f2Interpolator.Interpolate(freq2Clipped[bin]);
+                    if (bin >= f3_index0 && bin < f3_index1) world_parameters.spectrogram[frame, bin] = f3Interpolator.Interpolate(freq3Clipped[bin]);
+                    if (bin >= f4_index0 && bin < f4_index1) world_parameters.spectrogram[frame, bin] = f4Interpolator.Interpolate(freq4Clipped[bin]);
+                }
+            }
+        }
+        double[] FindFormants(double[,] sp, int frame, double fs, int fftSize)
+        {
+            List<double> formants = new List<double>();
+            double[] amplitudes = new double[fftSize / 2 + 1];
+
+            // 提取幅度谱
+            for (int i = 0; i <= fftSize / 2; i++)
+            {
+                amplitudes[i] = sp[frame, i]; // 假设 sp 已经是幅度谱
+            }
+
+            // 计算对数幅度谱
+            for (int i = 0; i < amplitudes.Length; i++)
+            {
+                amplitudes[i] = Math.Log(amplitudes[i] + 1e-10); // 防止对数负无穷
+            }
+
+            // 计算反傅里叶变换（即倒谱）
+            double[] cepstrum = new double[amplitudes.Length];
+            Fourier.Forward(amplitudes, cepstrum, FourierOptions.Default);
+
+            // 查找倒谱中的峰值
+            for (int i = 2; i < cepstrum.Length - 2; i++)
+            {
+                bool isPeak = cepstrum[i] > cepstrum[i - 1] && cepstrum[i] > cepstrum[i + 1] &&
+                              cepstrum[i - 1] > cepstrum[i - 2] && cepstrum[i + 1] > cepstrum[i + 2];
+                if (isPeak)
+                {
+                    // 找到峰值，映射到频率
+                    double frequency = (i * fs) / fftSize;
+                    formants.Add(frequency);
+                }
+            }
+
+            // 只取前几个共振峰
+            formants.Sort();
+            formants = formants.Distinct().OrderBy(f => f).Take(10).ToList();
+            return formants.ToArray();
+        }
 
         public void SpectralEnvelopeEstimation(float[] x, int x_length)
         {
@@ -196,6 +323,11 @@ namespace OpenVoiceShifter
                 world_parameters.spectrogram);
 
             world_parameters.gender = new double[world_parameters.f0_length];
+
+            world_parameters.f1shifter = new double[world_parameters.f0_length];
+            world_parameters.f2shifter = new double[world_parameters.f0_length];
+            world_parameters.f3shifter = new double[world_parameters.f0_length];
+            world_parameters.f4shifter = new double[world_parameters.f0_length];
         }
 
         public void AperiodicityEstimation(float[] x, int x_length)
