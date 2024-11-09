@@ -28,6 +28,7 @@ namespace OpenVoiceShifter
         public int[] f3_bands => [f3_Freq - f3_bandWidth / 2, f3_Freq + f3_bandWidth / 2];
         public int[] f4_bands => [f4_Freq - f4_bandWidth / 2, f4_Freq + f4_bandWidth / 2];
     }
+
     public class WorldParameters
     {
         public double frame_period = 5;

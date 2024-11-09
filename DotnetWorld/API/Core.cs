@@ -11,7 +11,7 @@ namespace DotnetWorld.API
         public static string InitDllFile()
         {
             string srcDll = "libworldcore_x64.dll";
-            string dstDll = "libworldcore.dll";
+            string dstDll = "worldcore.dll";
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 if (RuntimeInformation.ProcessArchitecture == Architecture.X86) srcDll = "libworldcore_x86.dll";

@@ -11,6 +11,7 @@ namespace OpenVoiceShifter.API
     public class OVSProject
     {
         public WorldSample? hVsprj;
+        private object sampleBound;
 
         public List<OVSPoint> Items { get; private set; }
 
@@ -43,7 +44,7 @@ namespace OpenVoiceShifter.API
         {
             Parallel.For(0, hVsprj.WorldArgs.f0_length, (i) =>
             {
-                var ret = new OVSPoint(i)
+                var ret = new OVSPoint(i, hVsprj.WorldArgs)
                 {
                     pit_Edt = hVsprj.WorldArgs.pitch[i],
                     pit_Org = hVsprj.WorldArgs.pitch[i],
@@ -63,14 +64,41 @@ namespace OpenVoiceShifter.API
 
         public void ApplyData()
         {
-            bool pitChanged = Items.Where(p => (p.pit_Edt != p.pit_Org)).Count() > 0;
-            if(pitChanged)hVsprj.PitchApplyToF0();
+            var pitCL = Items.Where(p => (p.pit_Edt != p.pit_Org));
+            bool pitChanged = pitCL.Count() > 0;
+            if (pitChanged)
+            {
+                foreach(var p in pitCL)
+                {
+                    hVsprj.WorldArgs.pitch[p.index] = p.pit_Edt;
+                }
+                hVsprj.PitchApplyToF0();
+            }
 
-            bool fmtChanged = Items.Where(p => (p.fmt_Edt.Length == 4 && (p.fmt_Edt.Where(n=>n!=0).Count()>0))).Count() > 0;
-            if (fmtChanged) hVsprj.FormantsApplyToSP();
+            var fmtCL = Items.Where(p => (p.fmt_Edt.Length == 4 && (p.fmt_Edt.Where(n => n != 0).Count() > 0)));
+            bool fmtChanged = fmtCL.Count() > 0;
+            if (fmtChanged)
+            {
+                foreach (var p in fmtCL)
+                {
+                    hVsprj.WorldArgs.f1shifter[p.index] = p.fmt_Edt[0];
+                    hVsprj.WorldArgs.f2shifter[p.index] = p.fmt_Edt[1];
+                    hVsprj.WorldArgs.f3shifter[p.index] = p.fmt_Edt[2];
+                    hVsprj.WorldArgs.f4shifter[p.index] = p.fmt_Edt[3];
+                }
+                hVsprj.FormantsApplyToSP();
+            }
 
-            bool genChanged = Items.Where(p => (p.gen_Edt != 0)).Count() > 0;
-            if (genChanged) hVsprj.GenderApplyToSP();
+            var genCL = Items.Where(p => (p.gen_Edt != 0));
+            bool genChanged = genCL.Count() > 0;
+            if (genChanged)
+            {
+                foreach (var p in genCL)
+                {
+                    hVsprj.WorldArgs.gender[p.index] = p.gen_Edt;
+                }
+                hVsprj.GenderApplyToSP();
+            }
         }
 
     }
