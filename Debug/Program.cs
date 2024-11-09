@@ -89,7 +89,7 @@ class Program
                 world.WorldArgs.f4shifter[i] = 0;
             }
             //world.GenderApplyToSP();
-            world.FormantsApplyToSP2();
+            world.FormantsApplyToSP();
 
             var fnts2 = FindFormants(world.WorldArgs.spectrogram, 82, world.WorldArgs.fs, world.WorldArgs.fft_size);
 

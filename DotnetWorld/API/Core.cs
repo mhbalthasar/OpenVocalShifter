@@ -10,26 +10,26 @@ namespace DotnetWorld.API
         private static string InitDll = InitDllFile();
         public static string InitDllFile()
         {
-            string srcDll = "x64_world.dll";
-            string dstDll = "worldcore.dll";
+            string srcDll = "libworldcore_x64.dll";
+            string dstDll = "libworldcore.dll";
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                if (RuntimeInformation.ProcessArchitecture == Architecture.X86) srcDll = "x86_world.dll";
-                if (RuntimeInformation.ProcessArchitecture == Architecture.X64) srcDll = "x64_world.dll";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X86) srcDll = "libworldcore_x86.dll";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X64) srcDll = "libworldcore_x64.dll";
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 dstDll = "libworldcore.so";
-                if (RuntimeInformation.ProcessArchitecture == Architecture.X86) srcDll = "x86_world.dll";
-                if (RuntimeInformation.ProcessArchitecture == Architecture.X64) srcDll = "x64_world.dll";
-                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64) srcDll = "aarch_world.dll";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X86) srcDll = "libworldcore_x86.so";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X64) srcDll = "libworldcore_x64.so";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64) srcDll = "libworldcore_arm.so";
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 dstDll = "libworldcore.dylib";
-                if (RuntimeInformation.ProcessArchitecture == Architecture.X86) srcDll = "x86_world.dylib";
-                if (RuntimeInformation.ProcessArchitecture == Architecture.X64) srcDll = "x86_world.dylib";
-                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64) srcDll = "aarch_world.dylib";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X86) srcDll = "libworldcore_x86.dylib";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X64) srcDll = "libworldcore_x64.dylib";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64) srcDll = "libworldcore_arm.dylib";
             }
             try
             {
