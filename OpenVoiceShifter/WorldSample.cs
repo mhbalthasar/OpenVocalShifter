@@ -197,6 +197,7 @@ namespace OpenVoiceShifter
                 }
             }
         }
+
         public void FormantsApplyToSP()
         {
             double f1_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f1_bands[0]).First()[0];
@@ -219,9 +220,6 @@ namespace OpenVoiceShifter
 
                 // 创建频率数组
                 double[] freq1X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
-                double[] freq2X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
-                double[] freq3X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
-                double[] freq4X = Generate.LinearSpaced(world_parameters.spectrogram.GetLength(1), 0, 1);
 
                 // 根据性别调整拉伸频谱包络
                 double[] freq1Clipped = new double[world_parameters.spectrogram.GetLength(1)];
@@ -244,59 +242,17 @@ namespace OpenVoiceShifter
                 }
 
                 // 创建立方样条插值器
-                var f1Interpolator = Interpolate.CubicSpline(freq1X, currentFrame);
-                var f2Interpolator = Interpolate.CubicSpline(freq2X, currentFrame);
-                var f3Interpolator = Interpolate.CubicSpline(freq3X, currentFrame);
-                var f4Interpolator = Interpolate.CubicSpline(freq4X, currentFrame);
+                var Interpolator = Interpolate.CubicSpline(freq1X, currentFrame);
 
                 // 对当前帧进行插值
                 for (int bin = 0; bin < world_parameters.spectrogram.GetLength(1); bin++)
                 {
-                    if (bin >= f1_index0 && bin < f1_index1) world_parameters.spectrogram[frame, bin] = f1Interpolator.Interpolate(freq1Clipped[bin]);
-                    if (bin >= f2_index0 && bin < f2_index1) world_parameters.spectrogram[frame, bin] = f2Interpolator.Interpolate(freq2Clipped[bin]);
-                    if (bin >= f3_index0 && bin < f3_index1) world_parameters.spectrogram[frame, bin] = f3Interpolator.Interpolate(freq3Clipped[bin]);
-                    if (bin >= f4_index0 && bin < f4_index1) world_parameters.spectrogram[frame, bin] = f4Interpolator.Interpolate(freq4Clipped[bin]);
+                    if (bin >= f1_index0 && bin < f1_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq1Clipped[bin]);
+                    if (bin >= f2_index0 && bin < f2_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq2Clipped[bin]);
+                    if (bin >= f3_index0 && bin < f3_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq3Clipped[bin]);
+                    if (bin >= f4_index0 && bin < f4_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq4Clipped[bin]);
                 }
             }
-        }
-        double[] FindFormants(double[,] sp, int frame, double fs, int fftSize)
-        {
-            List<double> formants = new List<double>();
-            double[] amplitudes = new double[fftSize / 2 + 1];
-
-            // 提取幅度谱
-            for (int i = 0; i <= fftSize / 2; i++)
-            {
-                amplitudes[i] = sp[frame, i]; // 假设 sp 已经是幅度谱
-            }
-
-            // 计算对数幅度谱
-            for (int i = 0; i < amplitudes.Length; i++)
-            {
-                amplitudes[i] = Math.Log(amplitudes[i] + 1e-10); // 防止对数负无穷
-            }
-
-            // 计算反傅里叶变换（即倒谱）
-            double[] cepstrum = new double[amplitudes.Length];
-            Fourier.Forward(amplitudes, cepstrum, FourierOptions.Default);
-
-            // 查找倒谱中的峰值
-            for (int i = 2; i < cepstrum.Length - 2; i++)
-            {
-                bool isPeak = cepstrum[i] > cepstrum[i - 1] && cepstrum[i] > cepstrum[i + 1] &&
-                              cepstrum[i - 1] > cepstrum[i - 2] && cepstrum[i + 1] > cepstrum[i + 2];
-                if (isPeak)
-                {
-                    // 找到峰值，映射到频率
-                    double frequency = (i * fs) / fftSize;
-                    formants.Add(frequency);
-                }
-            }
-
-            // 只取前几个共振峰
-            formants.Sort();
-            formants = formants.Distinct().OrderBy(f => f).Take(10).ToList();
-            return formants.ToArray();
         }
 
         public void SpectralEnvelopeEstimation(float[] x, int x_length)

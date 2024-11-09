@@ -10,39 +10,13 @@ using System.Numerics;
 
 class Program
 {
-    public static double[,] Bias(double[,] x, double a)
-    {
-        int rows = x.GetLength(0);
-        int cols = x.GetLength(1);
-        double[,] result = new double[rows, cols];
-
-        if (a == 0)
-            return result; // 返回零矩阵
-        if (a == 1)
-        {
-            for (int i = 0; i < rows; i++)
-                for (int j = 0; j < cols; j++)
-                    result[i, j] = 1; // 返回全1矩阵
-            return result;
-        }
-
-        for (int i = 0; i < rows; i++)
-        {
-            for (int j = 0; j < cols; j++)
-            {
-                result[i, j] = x[i, j] / ((1 / a - 2) * (1 - x[i, j]) + 1);
-            }
-        }
-        return result;
-    }
-    static void Main1(string[] args)
+    static void Main(string[] args)
     {
         WorldInitialize.Initialize();
 
         string inputFilePath = "input.wav"; // 输入文件路径
-        string outputFilePath = "output_growl.wav"; // 输出文件路径
-        double growlPower = 0.3; // 增强的咆哮效果
-
+        string outputFilePath = "output_fmt.wav"; // 输出文件路径
+        
         // 读取 WAV 文件
         using (var reader = new AudioFileReader(inputFilePath))
         {
@@ -109,13 +83,13 @@ class Program
 
             for (int i = 0; i < world.WorldArgs.gender.Length; i++)
             {
-                world.WorldArgs.f1shifter[i] = 0.5;// WorldSample.CalculateFormantsShifter(807, 350);//// 117;
-                world.WorldArgs.f2shifter[i] = 0;// WorldSample.CalculateFormantsShifter(1227, 2500);
-                world.WorldArgs.f3shifter[i] = 0;// WorldSample.CalculateFormantsShifter(2340, 3600);
+                world.WorldArgs.f1shifter[i] = 100;// -200;// WorldSample.CalculateFormantsShifter(807, 350);//// 117;
+                world.WorldArgs.f2shifter[i] = 100;// WorldSample.CalculateFormantsShifter(1227, 2500);
+                world.WorldArgs.f3shifter[i] = -100;// WorldSample.CalculateFormantsShifter(2340, 3600);
                 world.WorldArgs.f4shifter[i] = 0;
             }
             //world.GenderApplyToSP();
-            world.FormantsApplyToSP();
+            world.FormantsApplyToSP2();
 
             var fnts2 = FindFormants(world.WorldArgs.spectrogram, 82, world.WorldArgs.fs, world.WorldArgs.fft_size);
 

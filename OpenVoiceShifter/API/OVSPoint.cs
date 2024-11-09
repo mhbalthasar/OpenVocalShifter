@@ -11,7 +11,7 @@ namespace OpenVoiceShifter.API
         public int index { get; private set; }
         public double pit_Org { get; set; }
         public double gen_Edt { get; set; }
-        public double gen_Org { get; set; }
         public double pit_Edt { get; set; }
+        public double[] fmt_Edt { get; set; }
     }
 }

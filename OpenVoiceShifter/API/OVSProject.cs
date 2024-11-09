@@ -48,7 +48,13 @@ namespace OpenVoiceShifter.API
                     pit_Edt = hVsprj.WorldArgs.pitch[i],
                     pit_Org = hVsprj.WorldArgs.pitch[i],
                     gen_Edt = hVsprj.WorldArgs.gender[i],
-                    gen_Org = hVsprj.WorldArgs.gender[i],
+                    fmt_Edt = new double[4]
+                    {
+                        hVsprj.WorldArgs.f1shifter[i],
+                        hVsprj.WorldArgs.f2shifter[i],
+                        hVsprj.WorldArgs.f3shifter[i],
+                        hVsprj.WorldArgs.f4shifter[i]
+                    },
                 };
                 lock (Items) Items.Add(ret);
             });
@@ -60,9 +66,11 @@ namespace OpenVoiceShifter.API
             bool pitChanged = Items.Where(p => (p.pit_Edt != p.pit_Org)).Count() > 0;
             if(pitChanged)hVsprj.PitchApplyToF0();
 
-            bool genChanged = Items.Where(p => (p.gen_Edt != p.gen_Org)).Count() > 0;
-            if (genChanged) hVsprj.GenderApplyToSP();
+            bool fmtChanged = Items.Where(p => (p.fmt_Edt.Length == 4 && (p.fmt_Edt.Where(n=>n!=0).Count()>0))).Count() > 0;
+            if (fmtChanged) hVsprj.FormantsApplyToSP();
 
+            bool genChanged = Items.Where(p => (p.gen_Edt != 0)).Count() > 0;
+            if (genChanged) hVsprj.GenderApplyToSP();
         }
 
     }
