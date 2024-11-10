@@ -10,6 +10,13 @@ using MathNet.Numerics.IntegralTransforms;
 
 namespace OpenVoiceShifter
 {
+    public class WorldFunctionSwitcher
+    {
+        public string Option_CacheFilePath { get; set; } = "";
+        public bool Enable_PitchChange { get; set; } = true;
+        public bool Enable_GenderChange { get; set; } = true;
+        public bool Enable_FormantChange { get; set; } = true;
+    }
     public class WorldFormantBands
     {
         public int f1_Freq = 625;
@@ -28,7 +35,6 @@ namespace OpenVoiceShifter
         public int[] f3_bands => [f3_Freq - f3_bandWidth / 2, f3_Freq + f3_bandWidth / 2];
         public int[] f4_bands => [f4_Freq - f4_bandWidth / 2, f4_Freq + f4_bandWidth / 2];
     }
-
     public class WorldParameters
     {
         public double frame_period = 5;
@@ -45,7 +51,7 @@ namespace OpenVoiceShifter
         public double[,] aperiodicity;
         
         public double[][] sp_freq;
-        public double[][] sp_formants;
+        public WorldFormantBands[] formants_bands;
         public double[] f1shifter;//300-1000
         public double[] f2shifter;//1000-2500
         public double[] f3shifter;//2500-3200
@@ -63,14 +69,13 @@ namespace OpenVoiceShifter
             frame_period= framePeriod
         };
 
-        WorldFormantBands world_formantbands = new WorldFormantBands();
-
+        WorldFunctionSwitcher world_functionswitcher = new WorldFunctionSwitcher();
         public WorldParameters WorldArgs { get => world_parameters; set => world_parameters = value; }
 
         private double MaxF0 { get; set; } = 800;
         private double MinF0 { get; set; } = 71;
         private double Q1 { get; set; } = -0.15;
-        public WorldFormantBands World_Formantbands { get => world_formantbands; set => world_formantbands = value; }
+        public WorldFunctionSwitcher FunctionSwitcher { get => world_functionswitcher; set => world_functionswitcher = value; }
 
         public void setAnaPrm_MinF0(int Pitch)
         {
@@ -100,7 +105,7 @@ namespace OpenVoiceShifter
             System.Console.WriteLine($"Lenght {((double)x_length / fs)} [sec]");
         }
 
-        public void F0EstimationDio(double[] x, int x_length)
+/*        public void F0EstimationDio(double[] x, int x_length)
         {
             var option = new DioOption();
 
@@ -126,29 +131,57 @@ namespace OpenVoiceShifter
 
             for (var i = 0; i < world_parameters.f0_length; ++i)
                 world_parameters.f0[i] = refined_f0[i];
-        }
+        }*/
 
         public void F0EstimationHarvest(float[] x, int x_length)
         {
-            var option = new HarvestOption();
+            string f0cache = "";
+            if (FunctionSwitcher.Option_CacheFilePath.Length > 3) f0cache = FunctionSwitcher.Option_CacheFilePath + ".f0";
+            bool cached = false;
+            if (File.Exists(f0cache))
+            {
+                int f0_len=(int)Tools.GetHeaderInformation(f0cache, "NOF ");
+                double[] f0 = new double[f0_len];
+                double[] temporal_positions = new double[f0_len];
+                if(f0_len>1 && Tools.ReadF0(f0cache, temporal_positions, f0) == 1)
+                {
+                    world_parameters.f0_length = f0_len;
+                    world_parameters.f0 = f0;
+                    world_parameters.time_axis = temporal_positions;
+                    cached = true;
+                }
+            }
+            if (!cached)
+            {
+                var option = new HarvestOption();
 
-            Core.InitializeHarvestOption(option);
+                Core.InitializeHarvestOption(option);
 
-            option.frame_period = world_parameters.frame_period;
-            option.f0_floor = MinF0;
-            option.f0_ceil = MaxF0;
+                option.frame_period = world_parameters.frame_period;
+                option.f0_floor = MinF0;
+                option.f0_ceil = MaxF0;
 
-            world_parameters.f0_length = Core.GetSamplesForDIO(world_parameters.fs,
-                x_length, world_parameters.frame_period);
-            world_parameters.f0 = new double[world_parameters.f0_length];
-            world_parameters.time_axis = new double[world_parameters.f0_length];
+                world_parameters.f0_length = Core.GetSamplesForDIO(world_parameters.fs,
+                    x_length, world_parameters.frame_period);
+                world_parameters.f0 = new double[world_parameters.f0_length];
+                world_parameters.time_axis = new double[world_parameters.f0_length];
 
-            System.Console.WriteLine("Analysis");
+                System.Console.WriteLine("Analysis");
 
-            double[] x1 = x.Select(p => (double)p).ToArray();
-            Core.Harvest(x1, x_length, world_parameters.fs, option,
-                world_parameters.time_axis, world_parameters.f0);
-            F0toPitch();
+                double[] x1 = x.Select(p => (double)p).ToArray();
+                Core.Harvest(x1, x_length, world_parameters.fs, option,
+                    world_parameters.time_axis, world_parameters.f0);
+
+                if (f0cache.Length > 6)
+                {
+                    int text_flag = 0;
+                    Tools.WriteF0(f0cache, world_parameters.f0_length, world_parameters.frame_period,
+                        world_parameters.time_axis, world_parameters.f0,
+                        text_flag);
+                }
+            }
+            if(FunctionSwitcher.Enable_PitchChange)F0toPitch();
+            else world_parameters.pitch = new double[world_parameters.f0_length];
         }
 
         public void F0toPitch()
@@ -159,13 +192,15 @@ namespace OpenVoiceShifter
         }
         public void PitchApplyToF0()
         {
+            if (!FunctionSwitcher.Enable_PitchChange) return;
             world_parameters.f0 = world_parameters.pitch.Select(p => (
                 440.0 * Math.Pow(2, ( p - 69 )/12.0)
             )).ToArray();
         }
         public void GenderApplyToSP()
         {
-            // 对每一帧进行插值
+            if (!FunctionSwitcher.Enable_GenderChange) return;
+                // 对每一帧进行插值
             for (int frame = 0; frame < world_parameters.spectrogram.GetLength(0); frame++)
             {
                 // 计算性别调整因子
@@ -198,21 +233,24 @@ namespace OpenVoiceShifter
                 }
             }
         }
-
         public void FormantsApplyToSP()
         {
-            double f1_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f1_bands[0]).First()[0];
-            double f1_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f1_bands[1]).First()[0];
-            double f2_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f2_bands[0]).First()[0];
-            double f2_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f2_bands[1]).First()[0];
-            double f3_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f3_bands[0]).First()[0];
-            double f3_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f3_bands[1]).First()[0];
-            double f4_index0 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f4_bands[0]).First()[0];
-            double f4_index1 = world_parameters.sp_freq.Where(p => p[1] >= World_Formantbands.f4_bands[1]).First()[0];
+            if (!FunctionSwitcher.Enable_FormantChange) return;
 
             // 对每一帧进行插值
             for (int frame = 0; frame < world_parameters.spectrogram.GetLength(0); frame++)
             {
+                var fmtBands = world_parameters.formants_bands[frame];
+
+                double f1_index0 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f1_bands[0]).First()[0];
+                double f1_index1 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f1_bands[1]).First()[0];
+                double f2_index0 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f2_bands[0]).First()[0];
+                double f2_index1 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f2_bands[1]).First()[0];
+                double f3_index0 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f3_bands[0]).First()[0];
+                double f3_index1 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f3_bands[1]).First()[0];
+                double f4_index0 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f4_bands[0]).First()[0];
+                double f4_index1 = world_parameters.sp_freq.Where(p => p[1] >= fmtBands.f4_bands[1]).First()[0];
+
                 // 计算性别调整因子
                 double f1 = Math.Pow(2, world_parameters.f1shifter[frame] / 100);
                 double f2 = Math.Pow(2, world_parameters.f2shifter[frame] / 100);
@@ -258,26 +296,50 @@ namespace OpenVoiceShifter
 
         public void SpectralEnvelopeEstimation(float[] x, int x_length)
         {
-            var option = new CheapTrickOption();
+            string spcache = "";
+            if (FunctionSwitcher.Option_CacheFilePath.Length > 3) spcache = FunctionSwitcher.Option_CacheFilePath + ".sp";
+            bool cached = false;
+            if (File.Exists(spcache))
+            {
+                int fft_size = (int)Tools.GetHeaderInformation(spcache, "FFT ");
+                double[,] sp = new double[world_parameters.f0_length, fft_size / 2 + 1];
+                if (fft_size>256 && Tools.ReadSpectralEnvelope(spcache,sp) == 1)
+                {
+                    world_parameters.fft_size = fft_size;
+                    world_parameters.spectrogram = sp;
+                    cached = true;
+                }
+            }
+            if (!cached)
+            {
+                var option = new CheapTrickOption();
 
-            Core.InitializeCheapTrickOption(world_parameters.fs, option);
+                Core.InitializeCheapTrickOption(world_parameters.fs, option);
 
-            option.q1 = Q1;
-            option.f0_floor = MinF0;
+                option.q1 = Q1;
+                option.f0_floor = MinF0;
 
-            world_parameters.fft_size = Core.GetFFTSizeForCheapTrick(world_parameters.fs, option);
-            world_parameters.spectrogram = new double[world_parameters.f0_length, world_parameters.fft_size / 2 + 1];
+                world_parameters.fft_size = Core.GetFFTSizeForCheapTrick(world_parameters.fs, option);
+                world_parameters.spectrogram = new double[world_parameters.f0_length, world_parameters.fft_size / 2 + 1];
+
+                double[] x1 = x.Select(p => (double)p).ToArray();
+                Core.CheapTrick(x1, x_length, world_parameters.fs, world_parameters.time_axis,
+                    world_parameters.f0, world_parameters.f0_length, option,
+                    world_parameters.spectrogram);
+
+                if (spcache.Length > 6)
+                {
+                    Tools.WriteSpectralEnvelope(spcache, world_parameters.fs, world_parameters.f0_length, world_parameters.frame_period,
+                        world_parameters.fft_size, 0, world_parameters.spectrogram);
+                }
+            }
+
             world_parameters.sp_freq = new double[world_parameters.fft_size / 2 + 1][];
 
             for (int n = 0; n <= world_parameters.fft_size / 2; n++)
             {
-                world_parameters.sp_freq[n] = [n,(double)n * world_parameters.fs / world_parameters.fft_size]; // 计算频率
+                world_parameters.sp_freq[n] = [n, (double)n * world_parameters.fs / world_parameters.fft_size]; // 计算频率
             }
-
-            double[] x1 = x.Select(p => (double)p).ToArray();
-            Core.CheapTrick(x1, x_length, world_parameters.fs, world_parameters.time_axis,
-                world_parameters.f0, world_parameters.f0_length, option,
-                world_parameters.spectrogram);
 
             world_parameters.gender = new double[world_parameters.f0_length];
 
@@ -285,21 +347,45 @@ namespace OpenVoiceShifter
             world_parameters.f2shifter = new double[world_parameters.f0_length];
             world_parameters.f3shifter = new double[world_parameters.f0_length];
             world_parameters.f4shifter = new double[world_parameters.f0_length];
+
+            world_parameters.formants_bands=Enumerable.Repeat(new WorldFormantBands() ,world_parameters.f0_length).ToArray();
         }
 
         public void AperiodicityEstimation(float[] x, int x_length)
         {
-            var option = new D4COption();
+            string apcache = "";
+            if (FunctionSwitcher.Option_CacheFilePath.Length > 3) apcache = FunctionSwitcher.Option_CacheFilePath + ".ap";
+            bool cached = false;
+            if (File.Exists(apcache))
+            {
+                int fft_size = (int)Tools.GetHeaderInformation(apcache, "FFT ");
+                double[,] ap = new double[world_parameters.f0_length, fft_size / 2 + 1];
+                if (fft_size>256 && Tools.ReadAperiodicity(apcache,ap) == 1)
+                {
+                    world_parameters.fft_size = fft_size;
+                    world_parameters.aperiodicity = ap;
+                    cached = true;
+                }
+            }
+            if (!cached)
+            {
+                var option = new D4COption();
 
-            Core.InitializeD4COption(option);
-            option.threshold = 0.85;
+                Core.InitializeD4COption(option);
+                option.threshold = 0.85;
 
-            world_parameters.aperiodicity = new double[world_parameters.f0_length, world_parameters.fft_size / 2 + 1];
+                world_parameters.aperiodicity = new double[world_parameters.f0_length, world_parameters.fft_size / 2 + 1];
 
-            double[] x1 = x.Select(p => (double)p).ToArray();
-            Core.D4C(x1, x_length, world_parameters.fs, world_parameters.time_axis,
-                world_parameters.f0, world_parameters.f0_length,
-                world_parameters.fft_size, option, world_parameters.aperiodicity);
+                double[] x1 = x.Select(p => (double)p).ToArray();
+                Core.D4C(x1, x_length, world_parameters.fs, world_parameters.time_axis,
+                    world_parameters.f0, world_parameters.f0_length,
+                    world_parameters.fft_size, option, world_parameters.aperiodicity);
+
+                if (apcache.Length > 6) {
+                    Tools.WriteAperiodicity(apcache, world_parameters.fs, world_parameters.f0_length, world_parameters.frame_period,
+                        world_parameters.fft_size, 0, world_parameters.aperiodicity);
+                }
+            }
         }
 
         public void WaveformSynthesis(int y_length, float[] y)

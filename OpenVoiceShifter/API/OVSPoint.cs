@@ -26,5 +26,6 @@ namespace OpenVoiceShifter.API
         public double gen_Edt { get; set; }
         public double pit_Edt { get; set; }
         public double[] fmt_Edt { get; set; }
+        public WorldFormantBands fmtBand_Edt { get; set; }
     }
 }

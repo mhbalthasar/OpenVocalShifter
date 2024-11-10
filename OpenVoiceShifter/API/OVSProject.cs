@@ -14,6 +14,7 @@ namespace OpenVoiceShifter.API
         private object sampleBound;
 
         public List<OVSPoint> Items { get; private set; }
+        public WorldFunctionSwitcher FunctionSwitcher { get => hVsprj.FunctionSwitcher; set => hVsprj.FunctionSwitcher = value; }
 
         public OVSProject()
         {
@@ -44,18 +45,25 @@ namespace OpenVoiceShifter.API
         {
             Parallel.For(0, hVsprj.WorldArgs.f0_length, (i) =>
             {
-                var ret = new OVSPoint(i, hVsprj.WorldArgs)
+                var ret = new OVSPoint(i, hVsprj.WorldArgs);
                 {
-                    pit_Edt = hVsprj.WorldArgs.pitch[i],
-                    pit_Org = hVsprj.WorldArgs.pitch[i],
-                    gen_Edt = hVsprj.WorldArgs.gender[i],
-                    fmt_Edt = new double[4]
+                    if (FunctionSwitcher.Enable_PitchChange)
                     {
-                        hVsprj.WorldArgs.f1shifter[i],
-                        hVsprj.WorldArgs.f2shifter[i],
-                        hVsprj.WorldArgs.f3shifter[i],
-                        hVsprj.WorldArgs.f4shifter[i]
-                    },
+                        ret.pit_Edt = hVsprj.WorldArgs.pitch[i];
+                        ret.pit_Org = hVsprj.WorldArgs.pitch[i];
+                    }
+                    if (FunctionSwitcher.Enable_GenderChange)
+                    {
+                        ret.gen_Edt = 0;
+                    }
+                    if (FunctionSwitcher.Enable_FormantChange)
+                    {
+                        ret.fmt_Edt = new double[4]
+                        {
+                            0,0,0,0
+                        };
+                        ret.fmtBand_Edt = new WorldFormantBands();
+                    }
                 };
                 lock (Items) Items.Add(ret);
             });
@@ -64,40 +72,48 @@ namespace OpenVoiceShifter.API
 
         public void ApplyData()
         {
-            var pitCL = Items.Where(p => (p.pit_Edt != p.pit_Org));
-            bool pitChanged = pitCL.Count() > 0;
-            if (pitChanged)
+            if (FunctionSwitcher.Enable_PitchChange)
             {
-                foreach(var p in pitCL)
+                var pitCL = Items.Where(p => (p.pit_Edt != p.pit_Org));
+                bool pitChanged = pitCL.Count() > 0;
+                if (pitChanged)
                 {
-                    hVsprj.WorldArgs.pitch[p.index] = p.pit_Edt;
+                    foreach (var p in pitCL)
+                    {
+                        hVsprj.WorldArgs.pitch[p.index] = p.pit_Edt;
+                    }
+                    hVsprj.PitchApplyToF0();
                 }
-                hVsprj.PitchApplyToF0();
             }
-
-            var fmtCL = Items.Where(p => (p.fmt_Edt.Length == 4 && (p.fmt_Edt.Where(n => n != 0).Count() > 0)));
-            bool fmtChanged = fmtCL.Count() > 0;
-            if (fmtChanged)
+            if (FunctionSwitcher.Enable_FormantChange)
             {
-                foreach (var p in fmtCL)
+                var fmtCL = Items.Where(p => (p.fmt_Edt.Length == 4 && (p.fmt_Edt.Where(n => n != 0).Count() > 0)));
+                bool fmtChanged = fmtCL.Count() > 0;
+                if (fmtChanged)
                 {
-                    hVsprj.WorldArgs.f1shifter[p.index] = p.fmt_Edt[0];
-                    hVsprj.WorldArgs.f2shifter[p.index] = p.fmt_Edt[1];
-                    hVsprj.WorldArgs.f3shifter[p.index] = p.fmt_Edt[2];
-                    hVsprj.WorldArgs.f4shifter[p.index] = p.fmt_Edt[3];
+                    foreach (var p in fmtCL)
+                    {
+                        hVsprj.WorldArgs.f1shifter[p.index] = p.fmt_Edt[0];
+                        hVsprj.WorldArgs.f2shifter[p.index] = p.fmt_Edt[1];
+                        hVsprj.WorldArgs.f3shifter[p.index] = p.fmt_Edt[2];
+                        hVsprj.WorldArgs.f4shifter[p.index] = p.fmt_Edt[3];
+                        hVsprj.WorldArgs.formants_bands[p.index] = p.fmtBand_Edt;
+                    }
+                    hVsprj.FormantsApplyToSP();
                 }
-                hVsprj.FormantsApplyToSP();
             }
-
-            var genCL = Items.Where(p => (p.gen_Edt != 0));
-            bool genChanged = genCL.Count() > 0;
-            if (genChanged)
+            if (FunctionSwitcher.Enable_GenderChange)
             {
-                foreach (var p in genCL)
+                var genCL = Items.Where(p => (p.gen_Edt != 0));
+                bool genChanged = genCL.Count() > 0;
+                if (genChanged)
                 {
-                    hVsprj.WorldArgs.gender[p.index] = p.gen_Edt;
+                    foreach (var p in genCL)
+                    {
+                        hVsprj.WorldArgs.gender[p.index] = p.gen_Edt;
+                    }
+                    hVsprj.GenderApplyToSP();
                 }
-                hVsprj.GenderApplyToSP();
             }
         }
 
