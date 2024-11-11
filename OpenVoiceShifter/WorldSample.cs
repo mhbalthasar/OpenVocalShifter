@@ -316,11 +316,11 @@ namespace OpenVoiceShifter
                 }
                 double[] bIndex = [f1_index0, f1_index1, f2_index0, f2_index1, f3_index0, f3_index1, f4_index0, f4_index1];
                 bIndex = bIndex.OrderBy(p => p).ToArray();
-                var cIndex = ConvertToGroups(bIndex,5);
+                var cIndex = ConvertToGroups(bIndex,6);
                 //Smooth
                 for (int i = 0; i < cIndex.Count; i++)
                 {
-                    int margin = 10;
+                    int margin = 2;
                     int[] bndIdx = cIndex[i];
                     int sBin = (int)bIndex[bndIdx.First()] - margin;
                     int eBin = (int)bIndex[bndIdx.Last()] + margin;
