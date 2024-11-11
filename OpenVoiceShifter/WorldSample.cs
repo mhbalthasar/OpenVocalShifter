@@ -286,10 +286,52 @@ namespace OpenVoiceShifter
                 // 对当前帧进行插值
                 for (int bin = 0; bin < world_parameters.spectrogram.GetLength(1); bin++)
                 {
-                    if (bin >= f1_index0 && bin < f1_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq1Clipped[bin]);
-                    if (bin >= f2_index0 && bin < f2_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq2Clipped[bin]);
-                    if (bin >= f3_index0 && bin < f3_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq3Clipped[bin]);
-                    if (bin >= f4_index0 && bin < f4_index1) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq4Clipped[bin]);
+                    if (bin >= f1_index0 && bin < f1_index1) if (world_parameters.f1shifter[frame] != 0) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq1Clipped[bin]);
+                    if (bin >= f2_index0 && bin < f2_index1) if (world_parameters.f2shifter[frame] != 0) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq2Clipped[bin]);
+                    if (bin >= f3_index0 && bin < f3_index1) if (world_parameters.f3shifter[frame] != 0) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq3Clipped[bin]);
+                    if (bin >= f4_index0 && bin < f4_index1) if (world_parameters.f4shifter[frame] != 0) world_parameters.spectrogram[frame, bin] = Interpolator.Interpolate(freq4Clipped[bin]);
+                }
+
+                List<int[]> ConvertToGroups(double[] bIndex, double bjVal = 5)
+                {
+                    List<int[]> result = new List<int[]>();
+                    List<int> currentGroup = new List<int> { 0 }; // 初始化第一个元素的下标
+
+                    for (int i = 1; i < bIndex.Length; i++)
+                    {
+                        if (bIndex[i] == bIndex[i - 1]) { }
+                        else if (bIndex[i] - bIndex[i - 1] < bjVal)
+                        {
+                            currentGroup.Add(i); // 如果相邻差值小于 5，加入当前组
+                        }
+                        else
+                        {
+                            if (currentGroup.Count > 0) result.Add(currentGroup.ToArray()); // 否则结束当前组并创建新组
+                            currentGroup = new List<int> { i };
+                        }
+                    }
+
+                    if (currentGroup.Count > 0) result.Add(currentGroup.OrderBy(p => p).ToArray()); // 添加最后一个组
+                    return result;
+                }
+                double[] bIndex = [f1_index0, f1_index1, f2_index0, f2_index1, f3_index0, f3_index1, f4_index0, f4_index1];
+                bIndex = bIndex.OrderBy(p => p).ToArray();
+                var cIndex = ConvertToGroups(bIndex,5);
+                //Smooth
+                for (int i = 0; i < cIndex.Count; i++)
+                {
+                    int margin = 10;
+                    int[] bndIdx = cIndex[i];
+                    int sBin = (int)bIndex[bndIdx.First()] - margin;
+                    int eBin = (int)bIndex[bndIdx.Last()] + margin;
+                    int stepBin = eBin - sBin;
+                    double hBin = world_parameters.spectrogram[frame, eBin] - world_parameters.spectrogram[frame, sBin];
+                    double phBin = hBin / stepBin;
+                    for(int j = 0; j < stepBin; j++)
+                    {
+                        int kBin = sBin + j;
+                        world_parameters.spectrogram[frame, kBin] = world_parameters.spectrogram[frame, sBin] + phBin * j;
+                    }
                 }
             }
         }
